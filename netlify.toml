@@ -1,11 +1,16 @@
 [build]
-  command = "test -d netlify/functions && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @finance/web build"
+  # Netlify auto-runs `pnpm install` from pnpm-lock.yaml — only build here
+  command = "pnpm --filter @finance/web build"
   publish = "apps/web/dist"
   functions = "netlify/functions"
 
+[build.environment]
+  NODE_VERSION = "22"
+  # Avoid Corepack signature failures on some Netlify images
+  COREPACK_INTEGRITY_KEYS = "0"
+
 [functions]
   node_bundler = "esbuild"
-  # Bundle workspace TS packages into the function
   external_node_modules = ["postgres"]
 
 [dev]
