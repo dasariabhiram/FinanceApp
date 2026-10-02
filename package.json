@@ -1,0 +1,22 @@
+{
+  "name": "finance-app",
+  "private": true,
+  "packageManager": "pnpm@8.15.3",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "dev:api": "turbo run dev --filter=@finance/api",
+    "dev:web": "turbo run dev --filter=@finance/web",
+    "dev:mobile": "turbo run start --filter=@finance/mobile",
+    "dev:worker": "turbo run dev --filter=@finance/worker",
+    "dev:netlify": "npx netlify-cli dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "pnpm --filter @finance/db generate",
+    "db:migrate": "pnpm --filter @finance/db migrate"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  }
+}

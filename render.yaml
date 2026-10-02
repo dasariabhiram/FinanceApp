@@ -1,0 +1,12 @@
+# Optional background worker only (API + web ship on Netlify).
+# Leave commented until OCR / email jobs are implemented.
+#
+# services:
+#   - type: worker
+#     name: finance-worker
+#     runtime: node
+#     plan: free
+#     rootDir: .
+#     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @finance/worker build
+#     startCommand: pnpm --filter @finance/worker start
+services: []

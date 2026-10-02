@@ -1,0 +1,22 @@
+# Prefer deploying from repo root (see /netlify.toml).
+# IMPORTANT: Netlify UI "Base directory" must be EMPTY / repo root — NOT apps/web.
+# If base is apps/web, functions at ../../netlify/functions may not bundle and
+# /api/* silently returns index.html (200).
+[build]
+  command = "cd ../.. && test -d netlify/functions && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @finance/web build"
+  publish = "dist"
+  functions = "../../netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["postgres"]
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
