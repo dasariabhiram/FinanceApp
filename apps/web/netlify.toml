@@ -1,7 +1,6 @@
 # Prefer deploying from repo root (see /netlify.toml).
-# IMPORTANT: Netlify UI "Base directory" must be EMPTY / repo root — NOT apps/web.
 [build]
-  command = "cd ../.. && pnpm --filter @finance/web build"
+  command = "cd ../.. && pnpm install --frozen-lockfile --prod=false && pnpm --filter @finance/web build"
   publish = "dist"
   functions = "../../netlify/functions"
 
