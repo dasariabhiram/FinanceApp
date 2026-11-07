@@ -36,7 +36,8 @@ export const adminRoutes: FastifyPluginAsync<{ db: Db }> = async (app, opts) => 
       const parsed = createOrganizationSchema.safeParse(request.body);
       if (!parsed.success) {
         reply.code(400);
-        return fail(parsed.error.issues[0]?.message ?? "Invalid body");
+        const issue = parsed.error.issues[0];
+        return fail(issue?.message ?? "Invalid body");
       }
       const input = parsed.data;
       const [existing] = await db

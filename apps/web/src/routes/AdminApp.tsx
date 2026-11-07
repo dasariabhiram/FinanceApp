@@ -39,7 +39,7 @@ export function AdminApp() {
     setBusy(true);
     setError("");
     try {
-      await api.createAdminOrg({ name, slug, ownerEmail });
+      await api.createAdminOrg({ name: name.trim(), slug: slug.trim().toLowerCase(), ownerEmail: ownerEmail.trim() });
       setName("");
       setSlug("");
       setOwnerEmail("");
@@ -88,7 +88,7 @@ export function AdminApp() {
             </div>
             <div className="field">
               <label>Slug</label>
-              <input value={slug} onChange={(e) => setSlug(e.target.value)} pattern="[a-z0-9-]+" required />
+              <input value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="e.g. abhidasari" required />
             </div>
             <div className="field">
               <label>Owner email</label>

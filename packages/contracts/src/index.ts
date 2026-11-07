@@ -75,9 +75,9 @@ export const createOrganizationSchema = z.object({
   name: z.string().min(1).max(120),
   slug: z
     .string()
-    .min(2)
-    .max(64)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    .trim()
+    .transform((s) => s.toLowerCase())
+    .pipe(z.string().min(2).max(64).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase letters, numbers, and hyphens")),
   ownerEmail: z.string().email(),
 });
 
