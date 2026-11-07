@@ -146,6 +146,12 @@ export function CustomerApp() {
   const [txHistoryMonth, setTxHistoryMonth] = useState<"all" | string>(() => currentMonthYM());
   const [summaryPeriod, setSummaryPeriod] = useState<SummaryPeriod>("month");
   const [platformAdmin, setPlatformAdmin] = useState(false);
+  const displayOrgLabel = (name: string) => {
+    const n = name.trim();
+    if (!n || /^demo$/i.test(n)) return "Personal";
+    return n;
+  };
+
   const [orgLabel, setOrgLabel] = useState("");
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [listening, setListening] = useState(false);
@@ -216,7 +222,7 @@ export function CustomerApp() {
       const m = res.data?.memberships?.[0];
       if (m) {
         setActiveOrgId(m.orgId);
-        setOrgLabel(m.orgName);
+        setOrgLabel(displayOrgLabel(m.orgName));
       }
       setPlatformAdmin(Boolean(res.data?.platformAdmin));
     } catch (e) {
@@ -678,7 +684,7 @@ export function CustomerApp() {
   if (!sessionEmail) {
     return (
       <div className="auth-wrap">
-        <section className="auth-hero" aria-label="FinanceApp introduction">
+        <section className="auth-hero" aria-label="MakeYourFinance introduction">
           <div className="hero-poster" />
           <HeroCanvas />
           <div className="auth-hero-copy">
@@ -700,7 +706,7 @@ export function CustomerApp() {
               <div className="brand">
                 <div className="brand-mark" />
                 <div>
-                  <h2>FinanceApp</h2>
+                  <h2>MakeYourFinance</h2>
                   <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>Sign in to your ledger</p>
                 </div>
               </div>
@@ -752,7 +758,7 @@ export function CustomerApp() {
         <div className="brand">
           <div className="brand-mark" />
           <div>
-            <h1>FinanceApp</h1>
+            <h1>MakeYourFinance</h1>
             <p>{loading ? "Syncing your ledger…" : orgLabel || "Expense tracking that stays out of your way"}</p>
           </div>
         </div>
@@ -1051,7 +1057,7 @@ export function CustomerApp() {
 
       {deferredInstall && !pwaDismissed ? (
         <div className="pwa-banner" role="status">
-          <span>Install FinanceApp for one-tap voice expenses</span>
+          <span>Install MakeYourFinance for one-tap voice expenses</span>
           <div style={{ display: "flex", gap: "0.4rem" }}>
             <button type="button" className="ghost" onClick={() => setPwaDismissed(true)}>Later</button>
             <button
