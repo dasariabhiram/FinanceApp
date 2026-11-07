@@ -4,6 +4,7 @@ import { z } from "zod";
 import { budgets, transactions, type Db } from "@finance/db";
 import { fail, ok } from "../../lib/envelope.js";
 import { requireUser } from "../../plugins/auth.js";
+import { resolveOrgContext } from "../../lib/org-context.js";
 
 const upsertSchema = z.object({
   amountMinor: z.string().regex(/^\d+$/),
@@ -23,10 +24,11 @@ export const budgetsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, opts) =
   app.get("/v1/budgets/current", async (request, reply) => {
     try {
       const user = requireUser(request);
+      const org = await resolveOrgContext(db, user, request);
       const { start, end } = monthWindow();
 
       const [[budget], [spent]] = await Promise.all([
-        db.select().from(budgets).where(eq(budgets.userId, user.sub)).limit(1),
+        db.select().from(budgets).where(eq(budgets.orgId, org.orgId)).limit(1),
         db
           .select({
             total: sql<string>`coalesce(sum(case when ${transactions.amountMinor} < 0 then -${transactions.amountMinor} else 0 end), 0)`,
@@ -34,7 +36,7 @@ export const budgetsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, opts) =
           .from(transactions)
           .where(
             and(
-              eq(transactions.userId, user.sub),
+              eq(transactions.orgId, org.orgId),
               eq(transactions.type, "EXPENSE"),
               gte(transactions.occurredOn, start),
               lt(transactions.occurredOn, end),
@@ -64,6 +66,7 @@ export const budgetsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, opts) =
   app.put("/v1/budgets/current", async (request, reply) => {
     try {
       const user = requireUser(request);
+      const org = await resolveOrgContext(db, user, request, { requireWritable: true });
       const parsed = upsertSchema.safeParse(request.body);
       if (!parsed.success) {
         reply.code(400);
@@ -72,9 +75,9 @@ export const budgetsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, opts) =
       const amount = BigInt(parsed.data.amountMinor);
       const [row] = await db
         .insert(budgets)
-        .values({ userId: user.sub, amountMinor: amount })
+        .values({ orgId: org.orgId, userId: user.sub, amountMinor: amount })
         .onConflictDoUpdate({
-          target: budgets.userId,
+          target: budgets.orgId,
           set: { amountMinor: amount, updatedAt: new Date() },
         })
         .returning();

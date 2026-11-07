@@ -1,4 +1,4 @@
-import type { Account, CreateAccount, CreateTransaction, Transaction } from "@finance/contracts";
+import type { Account, CreateAccount, CreateOrganization, CreateTransaction, Organization, Transaction } from "@finance/contracts";
 
 export type ApiEnvelope<T> = {
   success: boolean;
@@ -9,27 +9,43 @@ export type ApiEnvelope<T> = {
 export type ApiClientOptions = {
   baseUrl: string;
   getAccessToken?: () => Promise<string | null> | string | null;
-  /** retries for transient network failures (default 2) */
+  getOrgId?: () => string | null;
   retries?: number;
 };
+
+export type SummaryPeriod = "day" | "week" | "month";
 
 export type Summary = {
   totalBalanceMinor: string;
   monthIncomeMinor: string;
   monthExpenseMinor: string;
+  periodIncomeMinor: string;
+  periodExpenseMinor: string;
   accountCount: number;
+  period: SummaryPeriod;
   daily: { day: string; incomeMinor: string; expenseMinor: string }[];
   categories: { category: string; totalMinor: string }[];
+  byPayment: { accountType: string; accountName: string; totalMinor: string }[];
   periodStart: string;
   periodEnd: string;
 };
 
-export type BudgetCurrent = {
+
+export type MembershipInfo = {
+  orgId: string;
+  orgName: string;
+  orgSlug: string;
+  role: string;
+  orgStatus: string;
+};
+
+export type VoiceParseResult = {
   amountMinor: string | null;
-  spentMinor: string;
-  periodStart: string;
-  periodEnd: string;
-  percentUsed: number;
+  category: string | null;
+  accountHint: string | null;
+  description: string | null;
+  occurredOn: string | null;
+  confidence: "high" | "low";
 };
 
 export function isNetworkFailure(err: unknown): boolean {
@@ -62,12 +78,13 @@ async function requestOnce<T>(
   init?: RequestInit,
 ): Promise<ApiEnvelope<T>> {
   const token = options.getAccessToken ? await options.getAccessToken() : null;
+  const orgId = options.getOrgId?.() ?? null;
   const headers = new Headers(init?.headers);
-  // Only set JSON content-type when a body exists — Fastify rejects empty JSON bodies (DELETE/GET).
   if (init?.body != null && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (orgId) headers.set("X-Org-Id", orgId);
 
   let res: Response;
   try {
@@ -111,7 +128,29 @@ async function request<T>(
 export function createApiClient(options: ApiClientOptions) {
   return {
     health: () => request<{ status: string; service: string; timestamp: string }>(options, "/health"),
-    summary: () => request<Summary>(options, "/v1/summary"),
+    memberships: () =>
+      request<{ memberships: MembershipInfo[]; platformAdmin: boolean }>(options, "/v1/me/memberships"),
+    adminMe: () => request<{ platformAdmin: boolean }>(options, "/v1/admin/me"),
+    listAdminOrgs: () => request<Organization[]>(options, "/v1/admin/organizations"),
+    createAdminOrg: (input: CreateOrganization) =>
+      request<{ organization: Organization; inviteSent: boolean; inviteError: string | null }>(
+        options,
+        "/v1/admin/organizations",
+        { method: "POST", body: JSON.stringify(input) },
+      ),
+    updateOrgStatus: (id: string, status: "active" | "suspended") =>
+      request<{ id: string; status: string }>(options, `/v1/admin/organizations/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    summary: (period: SummaryPeriod = "month", window?: { start: string; end: string }) => {
+      const sp = new URLSearchParams({ period });
+      if (window?.start && window?.end) {
+        sp.set("start", window.start);
+        sp.set("end", window.end);
+      }
+      return request<Summary>(options, `/v1/summary?${sp.toString()}`);
+    },
     listAccounts: () => request<Account[]>(options, "/v1/accounts"),
     createAccount: (input: CreateAccount) =>
       request<Account>(options, "/v1/accounts", { method: "POST", body: JSON.stringify(input) }),
@@ -119,11 +158,21 @@ export function createApiClient(options: ApiClientOptions) {
       request<Account>(options, `/v1/accounts/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
     deleteAccount: (id: string) =>
       request<{ id: string }>(options, `/v1/accounts/${id}`, { method: "DELETE" }),
-    listTransactions: (params?: { accountId?: string; type?: string; search?: string }) => {
+    listTransactions: (params?: {
+      accountId?: string;
+      type?: string;
+      search?: string;
+      from?: string;
+      to?: string;
+      limit?: number;
+    }) => {
       const sp = new URLSearchParams();
       if (params?.accountId) sp.set("accountId", params.accountId);
       if (params?.type) sp.set("type", params.type);
       if (params?.search) sp.set("search", params.search);
+      if (params?.from) sp.set("from", params.from);
+      if (params?.to) sp.set("to", params.to);
+      if (params?.limit) sp.set("limit", String(params.limit));
       const q = sp.toString();
       return request<Transaction[]>(options, `/v1/transactions${q ? `?${q}` : ""}`);
     },
@@ -139,11 +188,10 @@ export function createApiClient(options: ApiClientOptions) {
       }),
     deleteTransaction: (id: string) =>
       request<{ id: string }>(options, `/v1/transactions/${id}`, { method: "DELETE" }),
-    getBudget: () => request<BudgetCurrent>(options, "/v1/budgets/current"),
-    setBudget: (amountMinor: string) =>
-      request<{ amountMinor: string }>(options, "/v1/budgets/current", {
-        method: "PUT",
-        body: JSON.stringify({ amountMinor }),
+    parseVoiceExpense: (transcript: string) =>
+      request<VoiceParseResult>(options, "/v1/voice/parse-expense", {
+        method: "POST",
+        body: JSON.stringify({ transcript }),
       }),
   };
 }

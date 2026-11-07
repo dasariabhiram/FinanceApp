@@ -13,7 +13,9 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "db:generate": "pnpm --filter @finance/db generate",
-    "db:migrate": "pnpm --filter @finance/db migrate"
+    "db:migrate": "pnpm --filter @finance/db migrate",
+    "db:apply": "node scripts/apply-sql-migrations.mjs",
+    "integrations:check": "node scripts/verify-integrations.mjs"
   },
   "devDependencies": {
     "turbo": "^2.5.4",

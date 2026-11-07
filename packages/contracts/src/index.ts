@@ -7,7 +7,9 @@ export const apiEnvelopeSchema = <T extends z.ZodTypeAny>(data: T) =>
     error: z.string().nullable(),
   });
 
-export const accountTypeSchema = z.enum(["CASH", "BANK", "CREDIT_CARD", "SAVINGS"]);
+export const accountTypeSchema = z.enum(["CASH", "UPI", "BANK", "CREDIT_CARD", "SAVINGS"]);
+export const orgStatusSchema = z.enum(["active", "suspended"]);
+export const orgRoleSchema = z.enum(["org_owner", "org_member"]);
 export const transactionTypeSchema = z.enum(["INCOME", "EXPENSE", "TRANSFER"]);
 
 export const accountSchema = z.object({
@@ -59,3 +61,44 @@ export type Account = z.infer<typeof accountSchema>;
 export type CreateAccount = z.infer<typeof createAccountSchema>;
 export type Transaction = z.infer<typeof transactionSchema>;
 export type CreateTransaction = z.infer<typeof createTransactionSchema>;
+
+export const organizationSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  slug: z.string(),
+  status: orgStatusSchema,
+  timezone: z.string(),
+  createdAt: z.string().datetime(),
+});
+
+export const createOrganizationSchema = z.object({
+  name: z.string().min(1).max(120),
+  slug: z
+    .string()
+    .min(2)
+    .max(64)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  ownerEmail: z.string().email(),
+});
+
+export const membershipSchema = z.object({
+  orgId: z.string().uuid(),
+  orgName: z.string(),
+  orgSlug: z.string(),
+  role: orgRoleSchema,
+});
+
+export type Organization = z.infer<typeof organizationSchema>;
+export type CreateOrganization = z.infer<typeof createOrganizationSchema>;
+export type Membership = z.infer<typeof membershipSchema>;
+
+export const parseExpenseResponseSchema = z.object({
+  amountMinor: z.string().nullable(),
+  category: z.string().nullable(),
+  accountHint: z.string().nullable(),
+  description: z.string().nullable(),
+  occurredOn: z.string().nullable(),
+  confidence: z.enum(["high", "low"]),
+});
+
+export type ParseExpenseResponse = z.infer<typeof parseExpenseResponseSchema>;

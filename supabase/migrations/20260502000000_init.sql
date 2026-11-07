@@ -83,6 +83,7 @@ alter table app.transactions force row level security;
 alter table app.budgets enable row level security;
 alter table app.budgets force row level security;
 
+drop policy if exists profiles_own on app.profiles;
 create policy profiles_own on app.profiles
   for all using (id = (select auth.uid()))
   with check (id = (select auth.uid()));
@@ -91,10 +92,12 @@ create policy accounts_own on app.accounts
   for all using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
 
+drop policy if exists transactions_own on app.transactions;
 create policy transactions_own on app.transactions
   for all using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
 
+drop policy if exists budgets_own on app.budgets;
 create policy budgets_own on app.budgets
   for all using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));

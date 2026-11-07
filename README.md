@@ -47,6 +47,10 @@ pnpm install
 
 # Apply SQL in Supabase SQL Editor:
 #   supabase/migrations/20260502000000_init.sql
+#   supabase/migrations/20260502120000_multitenant.sql
+#
+# Seed platform admin (SQL editor):
+#   insert into app.platform_admins (user_id) select id from app.profiles where email = 'YOUR_EMAIL';
 
 pnpm dev:api      # http://localhost:3001/health
 pnpm dev:web      # http://localhost:5173  (proxies /api → :3001)

@@ -6,8 +6,10 @@ import { authPlugin } from "./plugins/auth.js";
 import { healthRoutes } from "./modules/health/routes.js";
 import { accountsRoutes } from "./modules/accounts/routes.js";
 import { transactionsRoutes } from "./modules/transactions/routes.js";
-import { budgetsRoutes } from "./modules/budgets/routes.js";
 import { summaryRoutes } from "./modules/summary/routes.js";
+import { adminRoutes } from "./modules/admin/routes.js";
+import { orgRoutes } from "./modules/org/routes.js";
+import { voiceRoutes } from "./modules/voice/routes.js";
 import { fail } from "./lib/envelope.js";
 
 export async function buildApp() {
@@ -32,15 +34,17 @@ export async function buildApp() {
     origin: env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean),
     credentials: false,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Org-Id"],
   });
 
   await app.register(authPlugin);
-  await app.register(healthRoutes);
+  await app.register(healthRoutes, { db });
   await app.register(accountsRoutes, { db });
   await app.register(transactionsRoutes, { db });
-  await app.register(budgetsRoutes, { db });
   await app.register(summaryRoutes, { db });
+  await app.register(orgRoutes, { db });
+  await app.register(adminRoutes, { db });
+  await app.register(voiceRoutes, { db });
 
   app.setErrorHandler((error, _request, reply) => {
     const status = (error as { statusCode?: number }).statusCode ?? 500;

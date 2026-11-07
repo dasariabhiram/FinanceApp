@@ -1,4 +1,5 @@
 import { createApiClient } from "@finance/api-client";
+import { getActiveOrgId } from "./org-store";
 import { supabase } from "./supabase";
 
 /** Same-origin `/api` on Netlify; Vite proxies `/api` → local Fastify in dev */
@@ -21,6 +22,7 @@ if (supabase) {
 }
 
 export const api = createApiClient({
+  getOrgId: () => getActiveOrgId(),
   baseUrl,
   getAccessToken: async () => {
     if (cachedToken) return cachedToken;

@@ -5,10 +5,11 @@ import { createAccountSchema } from "@finance/contracts";
 import { accounts, type Db } from "@finance/db";
 import { fail, ok } from "../../lib/envelope.js";
 import { requireUser } from "../../plugins/auth.js";
+import { resolveOrgContext } from "../../lib/org-context.js";
 
 const updateAccountSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  type: z.enum(["CASH", "BANK", "CREDIT_CARD", "SAVINGS"]).optional(),
+  type: z.enum(["CASH", "UPI", "BANK", "CREDIT_CARD", "SAVINGS"]).optional(),
   isDefault: z.boolean().optional(),
 });
 
@@ -18,10 +19,11 @@ export const accountsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, opts) 
   app.get("/v1/accounts", async (request, reply) => {
     try {
       const user = requireUser(request);
+      const org = await resolveOrgContext(db, user, request);
       const rows = await db
         .select()
         .from(accounts)
-        .where(eq(accounts.userId, user.sub))
+        .where(eq(accounts.orgId, org.orgId))
         .orderBy(desc(accounts.createdAt));
       return ok(
         rows.map((r) => ({
@@ -44,6 +46,7 @@ export const accountsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, opts) 
   app.post("/v1/accounts", async (request, reply) => {
     try {
       const user = requireUser(request);
+      const org = await resolveOrgContext(db, user, request, { requireWritable: true });
       const parsed = createAccountSchema.safeParse(request.body);
       if (!parsed.success) {
         reply.code(400);
@@ -56,11 +59,12 @@ export const accountsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, opts) 
           await tx
             .update(accounts)
             .set({ isDefault: false })
-            .where(eq(accounts.userId, user.sub));
+            .where(eq(accounts.orgId, org.orgId));
         }
         return tx
           .insert(accounts)
           .values({
+            orgId: org.orgId,
             userId: user.sub,
             name: input.name,
             type: input.type,
@@ -94,6 +98,7 @@ export const accountsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, opts) 
   app.patch<{ Params: { id: string } }>("/v1/accounts/:id", async (request, reply) => {
     try {
       const user = requireUser(request);
+      const org = await resolveOrgContext(db, user, request, { requireWritable: true });
       const parsed = updateAccountSchema.safeParse(request.body);
       if (!parsed.success) {
         reply.code(400);
@@ -102,7 +107,7 @@ export const accountsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, opts) 
       const input = parsed.data;
       const [row] = await db.transaction(async (tx) => {
         if (input.isDefault === true) {
-          await tx.update(accounts).set({ isDefault: false }).where(eq(accounts.userId, user.sub));
+          await tx.update(accounts).set({ isDefault: false }).where(eq(accounts.orgId, org.orgId));
         }
         return tx
           .update(accounts)
@@ -111,7 +116,7 @@ export const accountsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, opts) 
             ...(input.type !== undefined ? { type: input.type } : {}),
             ...(input.isDefault !== undefined ? { isDefault: input.isDefault } : {}),
           })
-          .where(and(eq(accounts.id, request.params.id), eq(accounts.userId, user.sub)))
+          .where(and(eq(accounts.id, request.params.id), eq(accounts.orgId, org.orgId)))
           .returning();
       });
       if (!row) {
@@ -137,9 +142,10 @@ export const accountsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, opts) 
   app.delete<{ Params: { id: string } }>("/v1/accounts/:id", async (request, reply) => {
     try {
       const user = requireUser(request);
+      const org = await resolveOrgContext(db, user, request, { requireWritable: true });
       const [row] = await db
         .delete(accounts)
-        .where(and(eq(accounts.id, request.params.id), eq(accounts.userId, user.sub)))
+        .where(and(eq(accounts.id, request.params.id), eq(accounts.orgId, org.orgId)))
         .returning();
       if (!row) {
         reply.code(404);

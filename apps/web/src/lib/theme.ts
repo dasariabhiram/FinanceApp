@@ -2,9 +2,9 @@ const STORAGE_KEY = "financeapp-theme";
 
 export type Theme = "light" | "dark";
 
-export function resolveInitialTheme(stored: string | null, prefersDark: boolean): Theme {
+export function resolveInitialTheme(stored: string | null, _prefersDark: boolean): Theme {
   if (stored === "light" || stored === "dark") return stored;
-  return prefersDark ? "dark" : "light";
+  return "dark";
 }
 
 export function applyTheme(theme: Theme, root: HTMLElement = document.documentElement) {
@@ -12,7 +12,7 @@ export function applyTheme(theme: Theme, root: HTMLElement = document.documentEl
   root.style.colorScheme = theme;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
-    meta.setAttribute("content", theme === "dark" ? "#0c1220" : "#f4f7fb");
+    meta.setAttribute("content", theme === "dark" ? "#07090d" : "#eef1f4");
   }
 }
 

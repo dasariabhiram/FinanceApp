@@ -3,22 +3,32 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  // Load VITE_* from monorepo root .env
   envDir: "../../",
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
+      includeAssets: ["icon-192.png", "icon-512.png"],
       manifest: {
         name: "FinanceApp",
         short_name: "Finance",
-        theme_color: "#0f766e",
-        background_color: "#0b1220",
+        description: "Live monthly expense tracking for cash, UPI, and cards.",
+        theme_color: "#07090d",
+        background_color: "#07090d",
         display: "standalone",
         start_url: "/",
+        shortcuts: [
+          {
+            name: "Add expense by voice",
+            short_name: "Voice",
+            url: "/?action=voice",
+            icons: [{ src: "/icon-192.png", sizes: "192x192" }],
+          },
+        ],
         icons: [
           { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
       workbox: {
@@ -28,6 +38,14 @@ export default defineConfig({
           {
             urlPattern: ({ url }) => url.pathname.startsWith("/api/"),
             handler: "NetworkOnly",
+          },
+          {
+            urlPattern: /^https:\/\/(api\.fontshare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "fonts",
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
           },
         ],
       },

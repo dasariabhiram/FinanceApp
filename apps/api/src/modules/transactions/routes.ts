@@ -5,6 +5,7 @@ import { createTransactionSchema } from "@finance/contracts";
 import { accounts, transactions, type Db } from "@finance/db";
 import { fail, ok } from "../../lib/envelope.js";
 import { requireUser } from "../../plugins/auth.js";
+import { resolveOrgContext } from "../../lib/org-context.js";
 
 const updateTxSchema = z.object({
   category: z.string().min(1).max(80).optional(),
@@ -32,13 +33,28 @@ export const transactionsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, op
   app.get("/v1/transactions", async (request, reply) => {
     try {
       const user = requireUser(request);
-      const q = request.query as { accountId?: string; type?: string; search?: string };
-      const conditions = [eq(transactions.userId, user.sub)];
+      const org = await resolveOrgContext(db, user, request);
+      const q = request.query as {
+        accountId?: string;
+        type?: string;
+        search?: string;
+        from?: string;
+        to?: string;
+        limit?: string;
+      };
+      const isoDay = /^\d{4}-\d{2}-\d{2}$/;
+      const conditions = [eq(transactions.orgId, org.orgId)];
       if (typeof q.accountId === "string" && q.accountId) {
         conditions.push(eq(transactions.accountId, q.accountId));
       }
       if (q.type === "INCOME" || q.type === "EXPENSE") {
         conditions.push(eq(transactions.type, q.type));
+      }
+      if (typeof q.from === "string" && isoDay.test(q.from)) {
+        conditions.push(gte(transactions.occurredOn, q.from));
+      }
+      if (typeof q.to === "string" && isoDay.test(q.to)) {
+        conditions.push(lt(transactions.occurredOn, q.to));
       }
       if (typeof q.search === "string" && q.search.trim()) {
         const s = `%${q.search.trim()}%`;
@@ -47,12 +63,15 @@ export const transactionsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, op
         );
       }
 
+      const limitRaw = Number(q.limit ?? "500");
+      const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 2000) : 500;
+
       const rows = await db
         .select()
         .from(transactions)
         .where(and(...conditions))
         .orderBy(desc(transactions.occurredOn), desc(transactions.createdAt))
-        .limit(100);
+        .limit(limit);
 
       return ok(rows.map(mapTx));
     } catch (e) {
@@ -65,6 +84,7 @@ export const transactionsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, op
   app.post("/v1/transactions", async (request, reply) => {
     try {
       const user = requireUser(request);
+      const org = await resolveOrgContext(db, user, request, { requireWritable: true });
       const parsed = createTransactionSchema.safeParse(request.body);
       if (!parsed.success) {
         reply.code(400);
@@ -82,7 +102,7 @@ export const transactionsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, op
         const [account] = await tx
           .select({ id: accounts.id })
           .from(accounts)
-          .where(and(eq(accounts.id, input.accountId), eq(accounts.userId, user.sub)))
+          .where(and(eq(accounts.id, input.accountId), eq(accounts.orgId, org.orgId)))
           .limit(1);
         if (!account) {
           const err = new Error("Account not found");
@@ -93,13 +113,14 @@ export const transactionsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, op
         const [existing] = await tx
           .select()
           .from(transactions)
-          .where(and(eq(transactions.userId, user.sub), eq(transactions.idempotencyKey, input.idempotencyKey)))
+          .where(and(eq(transactions.orgId, org.orgId), eq(transactions.idempotencyKey, input.idempotencyKey)))
           .limit(1);
         if (existing) return existing;
 
         const [created] = await tx
           .insert(transactions)
           .values({
+            orgId: org.orgId,
             userId: user.sub,
             accountId: input.accountId,
             type: input.type,
@@ -134,6 +155,7 @@ export const transactionsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, op
   app.patch<{ Params: { id: string } }>("/v1/transactions/:id", async (request, reply) => {
     try {
       const user = requireUser(request);
+      const org = await resolveOrgContext(db, user, request, { requireWritable: true });
       const parsed = updateTxSchema.safeParse(request.body);
       if (!parsed.success) {
         reply.code(400);
@@ -148,7 +170,7 @@ export const transactionsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, op
           ...(input.occurredOn !== undefined ? { occurredOn: input.occurredOn } : {}),
           updatedAt: new Date(),
         })
-        .where(and(eq(transactions.id, request.params.id), eq(transactions.userId, user.sub)))
+        .where(and(eq(transactions.id, request.params.id), eq(transactions.orgId, org.orgId)))
         .returning();
       if (!row) {
         reply.code(404);
@@ -165,11 +187,12 @@ export const transactionsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, op
   app.delete<{ Params: { id: string } }>("/v1/transactions/:id", async (request, reply) => {
     try {
       const user = requireUser(request);
+      const org = await resolveOrgContext(db, user, request, { requireWritable: true });
       await db.transaction(async (tx) => {
         const [row] = await tx
           .select()
           .from(transactions)
-          .where(and(eq(transactions.id, request.params.id), eq(transactions.userId, user.sub)))
+          .where(and(eq(transactions.id, request.params.id), eq(transactions.orgId, org.orgId)))
           .limit(1);
         if (!row) {
           const err = new Error("Not found");
