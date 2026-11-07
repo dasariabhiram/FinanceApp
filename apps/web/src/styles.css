@@ -430,16 +430,60 @@ a { color: inherit; text-decoration: none; }
 .grid-accounts { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
 
 @media (max-width: 980px) {
-  .topbar { grid-template-columns: 1fr; justify-items: stretch; position: static; }
+  .topbar {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+    position: sticky;
+    top: 0.4rem;
+    gap: 0.55rem;
+    padding: 0.55rem 0.65rem;
+    margin-bottom: 0.9rem;
+  }
   .topbar .brand, .topbar .nav, .topbar .top-actions { justify-self: stretch; }
-  .topbar .top-actions { justify-content: space-between; }
-  .grid-4, .grid-2 { grid-template-columns: 1fr 1fr; }
-  .nav { width: 100%; justify-content: space-between; }
-  .nav button { flex: 1; text-align: center; }
-}
-@media (max-width: 640px) {
+  .topbar .top-actions { justify-content: flex-end; gap: 0.4rem; }
+  .topbar .brand p { display: none; }
+  .brand-mark { width: 36px; height: 36px; border-radius: 12px; }
+  .brand h1 { font-size: 0.98rem; }
   .grid-4, .grid-2 { grid-template-columns: 1fr; }
-  .app-shell { padding: 0.9rem 0.9rem 5.5rem; }
+  .nav { width: 100%; justify-content: stretch; gap: 0.15rem; }
+  .nav button { flex: 1; text-align: center; padding: 0.5rem 0.4rem; font-size: 0.8rem; }
+  .user-chip {
+    padding: 0.2rem 0.25rem 0.2rem 0.25rem;
+    background: transparent;
+    border: 0;
+  }
+  .user-chip span { display: none; }
+  .row { flex-direction: column; align-items: stretch; gap: 0.65rem; }
+  .row > * { min-width: 100%; flex: 1 1 100%; }
+  .row .actions { width: 100%; }
+  .row .actions .primary, .row .actions .secondary { flex: 1; }
+  .card { padding: 0.95rem 1rem; border-radius: 18px; }
+  .card:hover { transform: none; }
+  .stat-hero { padding: 1rem 1.05rem; gap: 0.85rem; }
+  .period-toggle { width: 100%; }
+  .period-toggle button { flex: 1; }
+}
+
+@media (max-width: 640px) {
+  .app-shell { padding: 0.75rem 0.75rem 9.5rem; }
+  .topbar { top: 0.25rem; border-radius: 16px; }
+  .voice-dock {
+    bottom: max(2.75rem, calc(env(safe-area-inset-bottom) + 2.25rem));
+  }
+  .pwa-banner {
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: calc(8.75rem + env(safe-area-inset-bottom, 0px));
+    max-width: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+    padding: 0.7rem 0.8rem;
+    font-size: 0.8rem;
+  }
+  .pwa-banner > div { width: 100%; justify-content: stretch; }
+  .pwa-banner .primary, .pwa-banner .ghost { flex: 1; }
+  .hero-amount { font-size: clamp(2rem, 11vw, 2.6rem); }
 }
 
 .card {
@@ -688,7 +732,7 @@ a { color: inherit; text-decoration: none; }
     left: 50%;
     right: auto;
     transform: translateX(-50%);
-    bottom: max(1rem, env(safe-area-inset-bottom));
+    bottom: max(2.5rem, calc(env(safe-area-inset-bottom) + 1.75rem));
     align-items: center;
     max-width: min(20rem, calc(100vw - 1.5rem));
     width: max-content;
@@ -699,7 +743,7 @@ a { color: inherit; text-decoration: none; }
     transform: translateX(-50%) rotate(45deg);
   }
   .app-shell {
-    padding-bottom: 7.5rem;
+    padding-bottom: 9rem;
   }
 }
 .voice-dock .voice-fab {
