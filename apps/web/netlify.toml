@@ -1,6 +1,6 @@
-# Prefer deploying from repo root (see /netlify.toml).
+# Prefer deploying from repo root (see /netlify.toml). Kept in sync for base=apps/web.
 [build]
-  command = "cd ../.. && pnpm install --frozen-lockfile --prod=false && pnpm --filter @finance/web build"
+  command = "cd ../.. && pnpm install --frozen-lockfile --prod=false && pnpm build:netlify-api && test -f netlify/functions/api/index.cjs && pnpm --filter @finance/web build"
   publish = "dist"
   functions = "../../netlify/functions"
 
@@ -10,7 +10,19 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["postgres"]
+
+[functions."api"]
+  node_bundler = "none"
+
+[[redirects]]
+  from = "/api"
+  to = "/.netlify/functions/api"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
 
 [[redirects]]
   from = "/*"

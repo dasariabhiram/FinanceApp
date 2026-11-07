@@ -1,6 +1,6 @@
 {
   "name": "finance-netlify-api",
   "private": true,
-  "type": "module",
-  "main": "index.mjs"
+  "type": "commonjs",
+  "main": "index.cjs"
 }

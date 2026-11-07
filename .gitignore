@@ -23,9 +23,6 @@ ios
 android
 web-build
 .netlify-home
-netlify/functions/api.mjs
-netlify/functions/api.cjs
-netlify/functions/api.cjs.meta.json
 netlify/functions/api/index.cjs
 netlify/functions/api/index.js
 netlify/functions/api/index.mjs

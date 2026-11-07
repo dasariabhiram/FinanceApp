@@ -1,2 +1,2 @@
-Generated at build time by `pnpm build:netlify-api` (`scripts/bundle-netlify-api.mjs`).
-Do not add TypeScript sources here — edit `netlify/functions-src/api.ts`.
+Generated at build by `pnpm build:netlify-api` → self-contained **CommonJS** `index.cjs`.
+Edit `netlify/functions-src/api.ts` only. Do not commit ESM `index.mjs` (breaks Fastify).

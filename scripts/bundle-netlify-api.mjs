@@ -6,11 +6,12 @@ import { createRequire } from "node:module";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "netlify/functions/api");
-const outfile = join(outDir, "index.mjs");
+const outfile = join(outDir, "index.cjs");
 const entry = join(root, "netlify/functions-src/api.ts");
 
 mkdirSync(outDir, { recursive: true });
 
+// Wipe any prior ESM/TS entries so Netlify cannot pick a broken index.mjs
 for (const name of ["index.ts", "index.js", "index.cjs", "index.mjs", "package.json"]) {
   const p = join(outDir, name);
   if (existsSync(p)) rmSync(p);
@@ -22,12 +23,14 @@ const aliasArgs = [
   `--alias:@finance/domain=${join(root, "packages/domain/src/index.ts")}`,
 ];
 
+// CommonJS full bundle: Node provides require() for node:events / Fastify / avvio.
+// This avoids BOTH missing workspace packages AND the ESM "Dynamic require" crash.
 const args = [
   entry,
   "--bundle",
   "--platform=node",
   "--target=node22",
-  "--format=esm",
+  "--format=cjs",
   `--outfile=${outfile}`,
   "--packages=bundle",
   ...aliasArgs,
@@ -64,6 +67,10 @@ if (/from\s+["']@finance\//.test(code) || /require\(["']@finance\//.test(code)) 
   console.error("ERROR: bundle still references @finance/* at runtime");
   process.exit(1);
 }
+if (/throw Error\(['"]Dynamic require of /.test(code)) {
+  console.error("ERROR: ESM dynamic-require shim present in CJS bundle");
+  process.exit(1);
+}
 
 writeFileSync(
   join(outDir, "package.json"),
@@ -71,12 +78,18 @@ writeFileSync(
     {
       name: "finance-netlify-api",
       private: true,
-      type: "module",
-      main: "index.mjs",
+      type: "commonjs",
+      main: "index.cjs",
     },
     null,
     2,
   ) + "\n",
+);
+
+// Also write index.js → re-export for hosts that only look for index.js
+writeFileSync(
+  join(outDir, "index.js"),
+  'module.exports = require("./index.cjs");\n',
 );
 
 console.log("bundled", outfile, `(${Math.round(code.length / 1024)} KB)`);

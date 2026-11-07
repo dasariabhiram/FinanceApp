@@ -1,5 +1,5 @@
 [build]
-  command = "pnpm install --frozen-lockfile --prod=false && pnpm build:netlify-api && test -f netlify/functions/api/index.mjs && pnpm --filter @finance/web build"
+  command = "pnpm install --frozen-lockfile --prod=false && pnpm build:netlify-api && test -f netlify/functions/api/index.cjs && pnpm --filter @finance/web build"
   publish = "apps/web/dist"
   functions = "netlify/functions"
 
@@ -12,6 +12,7 @@
 
 [functions."api"]
   node_bundler = "none"
+  included_files = ["netlify/functions/api/**"]
 
 [dev]
   command = "pnpm --filter @finance/web dev"
