@@ -1,6 +1,4 @@
 [build]
-  # Force install of devDependencies (tsc/vite). Netlify UI NODE_ENV=production
-  # otherwise makes pnpm skip them and `tsc` is not found.
   command = "pnpm install --frozen-lockfile --prod=false && pnpm --filter @finance/web build"
   publish = "apps/web/dist"
   functions = "netlify/functions"
@@ -11,8 +9,10 @@
 
 [functions]
   node_bundler = "esbuild"
-  # Bundle postgres into the function — externalizing it in a pnpm monorepo
-  # often yields MODULE_NOT_FOUND at runtime (opaque Netlify 502).
+
+[functions."api"]
+  # Install deps from netlify/functions/api/package.json into this function
+  node_bundler = "esbuild"
 
 [dev]
   command = "pnpm --filter @finance/web dev"
@@ -20,8 +20,6 @@
   port = 8888
   framework = "#custom"
 
-# Rewrite /api → function while keeping the remainder of the path.
-# Functions 2.0 `config.path` also matches /api/*; this is a safe fallback.
 [[redirects]]
   from = "/api"
   to = "/.netlify/functions/api"
@@ -32,7 +30,6 @@
   to = "/.netlify/functions/api/:splat"
   status = 200
 
-# SPA fallback
 [[redirects]]
   from = "/*"
   to = "/index.html"

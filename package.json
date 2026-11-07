@@ -15,9 +15,11 @@
     "db:generate": "pnpm --filter @finance/db generate",
     "db:migrate": "pnpm --filter @finance/db migrate",
     "db:apply": "node scripts/apply-sql-migrations.mjs",
-    "integrations:check": "node scripts/verify-integrations.mjs"
+    "integrations:check": "node scripts/verify-integrations.mjs",
+    "build:netlify-api": "node scripts/bundle-netlify-api.mjs"
   },
   "devDependencies": {
+    "esbuild": "^0.25.12",
     "turbo": "^2.5.4",
     "typescript": "^5.8.3"
   }
