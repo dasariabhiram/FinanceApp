@@ -1083,16 +1083,21 @@ export function CustomerApp() {
             <span>Listening… speak now</span>
           </div>
         ) : null}
-        <button
-          type="button"
-          className={`voice-fab${listening ? " listening" : ""}`}
-          onClick={startVoice}
-          aria-label={listening ? "Listening for expense" : "Record expense by voice"}
-          aria-pressed={listening}
-          disabled={listening}
-        >
-          <MicIcon />
-        </button>
+        <div className="voice-fab-cluster">
+          <button
+            type="button"
+            className={`voice-fab${listening ? " listening" : ""}`}
+            onClick={startVoice}
+            aria-label={listening ? "Listening for expense" : "Speak to add expense"}
+            aria-pressed={listening}
+            disabled={listening}
+          >
+            <MicIcon />
+          </button>
+          <span className="voice-fab-label" aria-hidden="true">
+            {listening ? "Listening" : "Speak"}
+          </span>
+        </div>
       </div>
 
       {voiceOpen && voiceDraft ? (
