@@ -2,14 +2,5 @@
   "name": "finance-netlify-api",
   "private": true,
   "type": "module",
-  "dependencies": {
-    "@fastify/cors": "^11.0.1",
-    "dotenv": "^16.5.0",
-    "drizzle-orm": "^0.44.2",
-    "fastify": "^5.3.3",
-    "fastify-plugin": "^6.0.0",
-    "jose": "^6.0.11",
-    "postgres": "^3.4.7",
-    "zod": "^3.24.2"
-  }
+  "main": "index.mjs"
 }

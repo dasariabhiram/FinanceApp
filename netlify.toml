@@ -1,5 +1,5 @@
 [build]
-  command = "pnpm install --frozen-lockfile --prod=false && pnpm --filter @finance/web build"
+  command = "pnpm install --frozen-lockfile --prod=false && pnpm build:netlify-api && test -f netlify/functions/api/index.mjs && pnpm --filter @finance/web build"
   publish = "apps/web/dist"
   functions = "netlify/functions"
 
@@ -11,8 +11,7 @@
   node_bundler = "esbuild"
 
 [functions."api"]
-  # Install deps from netlify/functions/api/package.json into this function
-  node_bundler = "esbuild"
+  node_bundler = "none"
 
 [dev]
   command = "pnpm --filter @finance/web dev"
