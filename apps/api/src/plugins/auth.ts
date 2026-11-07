@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
-import { createRemoteJWKSet, jwtVerify } from "jose";
-import { env } from "../env.js";
+import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
+import { getEnv } from "../env.js";
 
 export type AuthUser = {
   sub: string;
@@ -15,9 +15,15 @@ declare module "fastify" {
   }
 }
 
-const jwks = createRemoteJWKSet(
-  new URL(`${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`),
-);
+let jwks: JWTVerifyGetKey | null = null;
+
+function getJwks() {
+  if (!jwks) {
+    const env = getEnv();
+    jwks = createRemoteJWKSet(new URL(`${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`));
+  }
+  return jwks;
+}
 
 const authPluginImpl: FastifyPluginAsync = async (app) => {
   app.decorateRequest("user", null);
@@ -29,7 +35,8 @@ const authPluginImpl: FastifyPluginAsync = async (app) => {
 
     const token = header.slice("Bearer ".length);
     try {
-      const { payload } = await jwtVerify(token, jwks, {
+      const env = getEnv();
+      const { payload } = await jwtVerify(token, getJwks(), {
         issuer: `${env.SUPABASE_URL}/auth/v1`,
         audience: "authenticated",
       });
@@ -46,7 +53,6 @@ const authPluginImpl: FastifyPluginAsync = async (app) => {
   });
 };
 
-// Break encapsulation so the hook applies to all routes
 export const authPlugin = fp(authPluginImpl, { name: "auth-plugin" });
 
 export function requireUser(request: FastifyRequest): AuthUser {

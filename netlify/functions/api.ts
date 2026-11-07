@@ -1,7 +1,5 @@
 /**
  * Netlify Functions adapter: same Fastify app as local `apps/api`, mounted at /api/*.
- * Types are minimal so we don't require @netlify/functions at install time;
- * Netlify bundles this file on deploy.
  */
 import { buildApp } from "../../apps/api/src/app.js";
 import type { FastifyInstance } from "fastify";
@@ -25,41 +23,76 @@ function getApp() {
   return appPromise;
 }
 
+function jsonError(status: number, message: string, detail?: string) {
+  return new Response(
+    JSON.stringify({
+      success: false,
+      data: null,
+      error: message,
+      detail: detail ?? null,
+    }),
+    {
+      status,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    },
+  );
+}
+
 export default async (req: Request) => {
-  const app = await getApp();
-  const url = new URL(req.url);
-  // Function is mounted at /api/* — strip prefix so Fastify routes stay /health, /v1/...
-  const path = url.pathname.replace(/^\/api/, "") || "/";
-
-  const headers: Record<string, string> = {};
-  req.headers.forEach((value, key) => {
-    headers[key] = value;
-  });
-
-  const method = req.method.toUpperCase();
-  const payload = method === "GET" || method === "HEAD" ? undefined : await req.text();
-
-  const res = await app.inject({
-    method,
-    url: `${path}${url.search}`,
-    headers,
-    payload,
-  });
-
-  const resHeaders = new Headers();
-  for (const [key, value] of Object.entries(res.headers)) {
-    if (value == null) continue;
-    if (Array.isArray(value)) {
-      for (const item of value) resHeaders.append(key, String(item));
-    } else {
-      resHeaders.set(key, String(value));
-    }
+  let app: FastifyInstance;
+  try {
+    app = await getApp();
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("finance-api boot failed", err);
+    return jsonError(500, "API failed to start", detail);
   }
 
-  return new Response(res.body, {
-    status: res.statusCode,
-    headers: resHeaders,
-  });
+  try {
+    const url = new URL(req.url);
+    // Accept /api/*, /.netlify/functions/api/*, or already-stripped Fastify paths.
+    let path = url.pathname;
+    if (path.startsWith("/.netlify/functions/api")) {
+      path = path.slice("/.netlify/functions/api".length) || "/";
+    } else if (path.startsWith("/api")) {
+      path = path.slice("/api".length) || "/";
+    }
+    if (!path.startsWith("/")) path = `/${path}`;
+
+    const headers: Record<string, string> = {};
+    req.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+
+    const method = req.method.toUpperCase();
+    const payload = method === "GET" || method === "HEAD" ? undefined : await req.text();
+
+    const res = await app.inject({
+      method,
+      url: `${path}${url.search}`,
+      headers,
+      payload,
+    });
+
+    const resHeaders = new Headers();
+    for (const [key, value] of Object.entries(res.headers)) {
+      if (value == null) continue;
+      if (Array.isArray(value)) {
+        for (const item of value) resHeaders.append(key, String(item));
+      } else {
+        resHeaders.set(key, String(value));
+      }
+    }
+
+    return new Response(res.body, {
+      status: res.statusCode,
+      headers: resHeaders,
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("finance-api request failed", err);
+    return jsonError(500, "API request failed", detail);
+  }
 };
 
 export const config: NetlifyConfig = {

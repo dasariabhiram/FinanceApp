@@ -11,7 +11,8 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["postgres"]
+  # Bundle postgres into the function — externalizing it in a pnpm monorepo
+  # often yields MODULE_NOT_FOUND at runtime (opaque Netlify 502).
 
 [dev]
   command = "pnpm --filter @finance/web dev"
@@ -19,7 +20,19 @@
   port = 8888
   framework = "#custom"
 
-# SPA fallback — function path /api/* takes precedence
+# Rewrite /api → function while keeping the remainder of the path.
+# Functions 2.0 `config.path` also matches /api/*; this is a safe fallback.
+[[redirects]]
+  from = "/api"
+  to = "/.netlify/functions/api"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# SPA fallback
 [[redirects]]
   from = "/*"
   to = "/index.html"

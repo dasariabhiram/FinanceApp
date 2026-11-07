@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { createDb } from "@finance/db";
-import { env } from "./env.js";
+import { getEnv } from "./env.js";
 import { authPlugin } from "./plugins/auth.js";
 import { healthRoutes } from "./modules/health/routes.js";
 import { accountsRoutes } from "./modules/accounts/routes.js";
@@ -13,6 +13,7 @@ import { voiceRoutes } from "./modules/voice/routes.js";
 import { fail } from "./lib/envelope.js";
 
 export async function buildApp() {
+  const env = getEnv();
   const app = Fastify({
     logger: env.NODE_ENV !== "production",
     bodyLimit: 1_048_576,

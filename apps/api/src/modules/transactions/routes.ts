@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { createTransactionSchema } from "@finance/contracts";
 import { accounts, transactions, type Db } from "@finance/db";
