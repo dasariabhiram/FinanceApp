@@ -1242,10 +1242,12 @@ export function CustomerApp() {
             <div className="tx-list">
               {filteredTxs.map((t) => (
                 <div key={t.id} className="tx-item tx-item-compact">
-                  <div className="cat">{t.category}</div>
-                  <div className="meta payment-pill">
-                    {formatTxPaymentLabel(accounts, t.accountId)}
-                    {txHistoryMonth === "all" ? ` · ${t.occurredOn}` : ""}
+                  <div className="tx-item-main">
+                    <div className="cat">{t.category}</div>
+                    <div className="meta payment-pill">
+                      {formatTxPaymentLabel(accounts, t.accountId)}
+                      {txHistoryMonth === "all" ? ` · ${t.occurredOn}` : ""}
+                    </div>
                   </div>
                   <div className={`badge ${t.type === "INCOME" ? "income" : "expense"}`}>
                     {t.type === "INCOME" ? "+" : "-"}
