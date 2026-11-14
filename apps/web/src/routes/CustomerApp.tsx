@@ -602,6 +602,7 @@ export function CustomerApp() {
     setTxAccountId(t.accountId);
     setTxDate(t.occurredOn);
     setError("");
+    setTabAndUrl("transactions");
   }
 
   function cancelEditTx() {
@@ -610,6 +611,7 @@ export function CustomerApp() {
     setTxNote("");
     setTxType("EXPENSE");
     setTxCategory(CATEGORIES[0]);
+    setTxAccountId(accounts[0]?.id ?? "");
     setTxDate(todayISO());
   }
 
@@ -1031,6 +1033,14 @@ export function CustomerApp() {
                       </div>
                     </div>
                     <div className="badge expense">{formatMinor(String(Math.abs(Number(t.amountMinor))))}</div>
+                    <button
+                      className="icon-btn"
+                      type="button"
+                      onClick={() => startEditTx(t)}
+                      aria-label={t.type === "INCOME" ? "Edit refund" : "Edit expense"}
+                    >
+                      Edit
+                    </button>
                   </div>
               ))}
               {!recentExpenses.length ? <div className="empty">No expenses yet — tap Speak to add one</div> : null}
