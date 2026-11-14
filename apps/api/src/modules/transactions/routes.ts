@@ -1,17 +1,12 @@
 import type { FastifyPluginAsync } from "fastify";
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
-import { z } from "zod";
-import { createTransactionSchema } from "@finance/contracts";
+import { createTransactionSchema, updateTransactionSchema } from "@finance/contracts";
 import { accounts, transactions, type Db } from "@finance/db";
 import { fail, ok } from "../../lib/envelope.js";
 import { requireUser } from "../../plugins/auth.js";
 import { resolveOrgContext } from "../../lib/org-context.js";
+import { balanceDeltasForUpdate, toSignedMinor } from "./tx-amount.js";
 
-const updateTxSchema = z.object({
-  category: z.string().min(1).max(80).optional(),
-  description: z.string().max(500).nullable().optional(),
-  occurredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-});
 
 function mapTx(r: typeof transactions.$inferSelect) {
   return {
@@ -96,7 +91,13 @@ export const transactionsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, op
         reply.code(400);
         return fail("amountMinor must be positive");
       }
-      const signed = input.type === "EXPENSE" ? -amount : amount;
+      let signed: bigint;
+      try {
+        signed = toSignedMinor(input.type, amount);
+      } catch {
+        reply.code(400);
+        return fail("amountMinor must be positive");
+      }
 
       const row = await db.transaction(async (tx) => {
         const [account] = await tx
@@ -156,31 +157,102 @@ export const transactionsRoutes: FastifyPluginAsync<{ db: Db }> = async (app, op
     try {
       const user = requireUser(request);
       const org = await resolveOrgContext(db, user, request, { requireWritable: true });
-      const parsed = updateTxSchema.safeParse(request.body);
+      const parsed = updateTransactionSchema.safeParse(request.body);
       if (!parsed.success) {
         reply.code(400);
         return fail(parsed.error.issues[0]?.message ?? "Invalid body");
       }
       const input = parsed.data;
-      const [row] = await db
-        .update(transactions)
-        .set({
-          ...(input.category !== undefined ? { category: input.category } : {}),
-          ...(input.description !== undefined ? { description: input.description } : {}),
-          ...(input.occurredOn !== undefined ? { occurredOn: input.occurredOn } : {}),
-          updatedAt: new Date(),
-        })
-        .where(and(eq(transactions.id, request.params.id), eq(transactions.orgId, org.orgId)))
-        .returning();
-      if (!row) {
-        reply.code(404);
-        return fail("Not found");
-      }
+
+      const row = await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select()
+          .from(transactions)
+          .where(and(eq(transactions.id, request.params.id), eq(transactions.orgId, org.orgId)))
+          .limit(1);
+        if (!existing) {
+          const err = new Error("Not found");
+          (err as Error & { statusCode?: number }).statusCode = 404;
+          throw err;
+        }
+
+        const nextType = input.type ?? (existing.type as "INCOME" | "EXPENSE");
+        let nextSigned = existing.amountMinor;
+        if (input.amountMinor !== undefined || input.type !== undefined) {
+          const abs =
+            input.amountMinor !== undefined
+              ? BigInt(input.amountMinor.replace(/^-/, ""))
+              : existing.amountMinor < 0n
+                ? -existing.amountMinor
+                : existing.amountMinor;
+          try {
+            nextSigned = toSignedMinor(nextType, abs);
+          } catch {
+            const err = new Error("amountMinor must be positive");
+            (err as Error & { statusCode?: number }).statusCode = 400;
+            throw err;
+          }
+        }
+
+        const nextAccountId = input.accountId ?? existing.accountId;
+        if (input.accountId) {
+          const [account] = await tx
+            .select({ id: accounts.id })
+            .from(accounts)
+            .where(and(eq(accounts.id, nextAccountId), eq(accounts.orgId, org.orgId)))
+            .limit(1);
+          if (!account) {
+            const err = new Error("Account not found");
+            (err as Error & { statusCode?: number }).statusCode = 404;
+            throw err;
+          }
+        }
+
+        const deltas = balanceDeltasForUpdate(
+          { accountId: existing.accountId, signedMinor: existing.amountMinor },
+          { accountId: nextAccountId, signedMinor: nextSigned },
+        );
+        for (const [accountId, delta] of deltas) {
+          if (delta === 0n) continue;
+          await tx
+            .update(accounts)
+            .set({ balanceMinor: sql`${accounts.balanceMinor} + ${delta}` })
+            .where(eq(accounts.id, accountId));
+        }
+
+        const [updated] = await tx
+          .update(transactions)
+          .set({
+            accountId: nextAccountId,
+            type: nextType,
+            amountMinor: nextSigned,
+            ...(input.category !== undefined ? { category: input.category } : {}),
+            ...(input.description !== undefined ? { description: input.description } : {}),
+            ...(input.occurredOn !== undefined ? { occurredOn: input.occurredOn } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(transactions.id, existing.id))
+          .returning();
+
+        return updated!;
+      });
+
       return ok(mapTx(row));
     } catch (e) {
       const status = (e as { statusCode?: number }).statusCode ?? 500;
       reply.code(status);
-      return fail(status === 401 ? "Unauthorized" : "Failed to update transaction");
+      const msg = e instanceof Error ? e.message : "Failed to update transaction";
+      return fail(
+        status === 401
+          ? "Unauthorized"
+          : status === 404
+            ? msg === "Account not found"
+              ? "Account not found"
+              : "Not found"
+            : status === 400
+              ? msg
+              : "Failed to update transaction",
+      );
     }
   });
 

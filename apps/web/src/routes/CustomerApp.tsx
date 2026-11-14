@@ -187,6 +187,7 @@ export function CustomerApp() {
   const [accountName, setAccountName] = useState("Cash");
   const [accountType, setAccountType] = useState("CASH");
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
 
   const [txType, setTxType] = useState<"INCOME" | "EXPENSE">("EXPENSE");
   const [txAmount, setTxAmount] = useState("");
@@ -592,11 +593,60 @@ export function CustomerApp() {
     }
   }
 
+  function startEditTx(t: Tx) {
+    setEditingTxId(t.id);
+    setTxType(t.type === "INCOME" ? "INCOME" : "EXPENSE");
+    setTxAmount(minorToRupeesInput(String(Math.abs(Number(t.amountMinor)))));
+    setTxCategory(t.category || CATEGORIES[0]);
+    setTxNote(t.description ?? "");
+    setTxAccountId(t.accountId);
+    setTxDate(t.occurredOn);
+    setError("");
+  }
+
+  function cancelEditTx() {
+    setEditingTxId(null);
+    setTxAmount("");
+    setTxNote("");
+    setTxType("EXPENSE");
+    setTxCategory(CATEGORIES[0]);
+    setTxDate(todayISO());
+  }
+
+  async function saveEditTx(e: FormEvent) {
+    e.preventDefault();
+    if (!editingTxId) return;
+    setError("");
+    setBusy(true);
+    try {
+      const amountMinor = toMinorFromRupees(txAmount);
+      const res = await api.updateTransaction(editingTxId, {
+        accountId: txAccountId,
+        type: txType,
+        amountMinor,
+        category: txCategory,
+        description: txNote.trim() ? txNote.trim() : null,
+        occurredOn: txDate,
+      });
+      const updated = res.data as Tx;
+      setTxs((prev) => prev.map((t) => (t.id === editingTxId ? { ...t, ...updated } : t)));
+      cancelEditTx();
+      flash(txType === "INCOME" ? "Refund / income updated" : "Expense updated");
+      await loadCore();
+      await loadDashboardExtras();
+    } catch (err) {
+      setError(friendlyApiError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function exportCsv() {
     const header = "date,type,category,amount,description,accountId\n";
     const lines = filteredTxs.map((t) => {
       const amt = (Math.abs(Number(t.amountMinor)) / 100).toFixed(2);
-      const desc = (t.description ?? "").replaceAll('"', "'");
+      const raw = (t.description ?? "").replaceAll('"', "'");
+      const desc = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
       return `${t.occurredOn},${t.type},${t.category},${amt},"${desc}",${t.accountId}`;
     });
     const blob = new Blob([header + lines.join("\n")], { type: "text/csv" });
@@ -1091,13 +1141,18 @@ export function CustomerApp() {
       {tab === "transactions" ? (
         <div className="grid" style={{ gap: "1rem" }}>
           <div className="card">
-            <div className="section-head"><h2>Quick add</h2></div>
-            <form className="row" onSubmit={createTx}>
+            <div className="section-head">
+              <h2>{editingTxId ? (txType === "INCOME" ? "Edit refund / income" : "Edit expense") : "Quick add"}</h2>
+              {editingTxId ? (
+                <button type="button" className="ghost" onClick={cancelEditTx}>Cancel</button>
+              ) : null}
+            </div>
+            <form className="row" onSubmit={editingTxId ? saveEditTx : createTx}>
               <div className="field">
                 <label htmlFor="qa-type">Type</label>
                 <select id="qa-type" value={txType} onChange={(e) => setTxType(e.target.value as "INCOME" | "EXPENSE")}>
                   <option value="EXPENSE">Expense</option>
-                  <option value="INCOME">Income</option>
+                  <option value="INCOME">Income / Refund</option>
                 </select>
               </div>
               <div className="field">
@@ -1120,51 +1175,18 @@ export function CustomerApp() {
                   ))}
                 </select>
               </div>
-              <div className="actions">
-                <button className="primary" type="submit" disabled={busy || !accounts.length}>Add</button>
-              </div>
-            </form>
-          </div>
-          <div className="card">
-            <h2>New transaction</h2>
-            <form className="row" onSubmit={createTx}>
               <div className="field">
-                <label>Type</label>
-                <select value={txType} onChange={(e) => setTxType(e.target.value as "INCOME" | "EXPENSE")}>
-                  <option value="EXPENSE">Expense</option>
-                  <option value="INCOME">Income</option>
-                </select>
+                <label htmlFor="qa-date">Date</label>
+                <input id="qa-date" type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} required />
               </div>
               <div className="field">
-                <label>Amount (₹)</label>
-                <input value={txAmount} onChange={(e) => setTxAmount(e.target.value)} required />
-              </div>
-              <div className="field">
-                <label>Category</label>
-                <select value={txCategory} onChange={(e) => setTxCategory(e.target.value)}>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label>Account</label>
-                <select value={txAccountId} onChange={(e) => setTxAccountId(e.target.value)} required>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label>Date</label>
-                <input type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} required />
-              </div>
-              <div className="field">
-                <label>Note</label>
-                <input value={txNote} onChange={(e) => setTxNote(e.target.value)} placeholder="Optional" />
+                <label htmlFor="qa-note">Note</label>
+                <input id="qa-note" value={txNote} onChange={(e) => setTxNote(e.target.value)} placeholder="Optional" />
               </div>
               <div className="actions">
-                <button className="primary" type="submit" disabled={busy || !accounts.length}>Save</button>
+                <button className="primary" type="submit" disabled={busy || !accounts.length}>
+                  {editingTxId ? "Save" : "Add"}
+                </button>
               </div>
             </form>
           </div>
@@ -1199,7 +1221,7 @@ export function CustomerApp() {
                 <select value={txFilter} onChange={(e) => setTxFilter(e.target.value as typeof txFilter)}>
                   <option value="ALL">All</option>
                   <option value="EXPENSE">Expenses</option>
-                  <option value="INCOME">Income</option>
+                  <option value="INCOME">Income / Refund</option>
                 </select>
               </div>
               <div className="field">
@@ -1219,7 +1241,20 @@ export function CustomerApp() {
                     {t.type === "INCOME" ? "+" : "-"}
                     {formatMinor(String(Math.abs(Number(t.amountMinor))))}
                   </div>
-                  <button className="icon-btn" type="button" onClick={() => removeTx(t.id)} aria-label="Delete expense">
+                  <button
+                    className="icon-btn"
+                    type="button"
+                    onClick={() => startEditTx(t)}
+                    aria-label={t.type === "INCOME" ? "Edit refund" : "Edit expense"}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="icon-btn"
+                    type="button"
+                    onClick={() => removeTx(t.id)}
+                    aria-label={t.type === "INCOME" ? "Delete refund" : "Delete expense"}
+                  >
                     Delete
                   </button>
                 </div>

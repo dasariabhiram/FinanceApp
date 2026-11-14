@@ -62,6 +62,26 @@ export type CreateAccount = z.infer<typeof createAccountSchema>;
 export type Transaction = z.infer<typeof transactionSchema>;
 export type CreateTransaction = z.infer<typeof createTransactionSchema>;
 
+export const updateTransactionSchema = z.object({
+  accountId: z.string().uuid().optional(),
+  type: z.enum(["INCOME", "EXPENSE"]).optional(),
+  amountMinor: z.string().regex(/^-?\d+$/).optional(),
+  category: z.string().min(1).max(80).optional(),
+  description: z.string().max(500).nullable().optional(),
+  occurredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+}).refine(
+  (v) =>
+    v.accountId !== undefined ||
+    v.type !== undefined ||
+    v.amountMinor !== undefined ||
+    v.category !== undefined ||
+    v.description !== undefined ||
+    v.occurredOn !== undefined,
+  { message: "At least one field required" },
+);
+export type UpdateTransaction = z.infer<typeof updateTransactionSchema>;
+
+
 export const organizationSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),

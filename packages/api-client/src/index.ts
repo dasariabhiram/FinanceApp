@@ -1,4 +1,4 @@
-import type { Account, CreateAccount, CreateOrganization, CreateTransaction, Organization, Transaction } from "@finance/contracts";
+import type { Account, CreateAccount, CreateOrganization, CreateTransaction, UpdateTransaction, Organization, Transaction } from "@finance/contracts";
 
 export type ApiEnvelope<T> = {
   success: boolean;
@@ -178,10 +178,7 @@ export function createApiClient(options: ApiClientOptions) {
     },
     createTransaction: (input: CreateTransaction) =>
       request<Transaction>(options, "/v1/transactions", { method: "POST", body: JSON.stringify(input) }),
-    updateTransaction: (
-      id: string,
-      input: { category?: string; description?: string | null; occurredOn?: string },
-    ) =>
+    updateTransaction: (id: string, input: UpdateTransaction) =>
       request<Transaction>(options, `/v1/transactions/${id}`, {
         method: "PATCH",
         body: JSON.stringify(input),
