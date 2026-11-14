@@ -24,11 +24,16 @@ assert.match(
   "startEditTx must switch to transactions tab so edit form is visible",
 );
 
-// Compact history rows: cat + meta + badge + Edit + Delete = 5 columns.
+// Compact history rows: cat + meta + badge + actions = 4 shrinkable columns.
 assert.match(
   css,
-  /\.tx-item-compact\s*\{\s*grid-template-columns:\s*[^}]*auto\s+auto\s+auto/,
-  "tx-item-compact must reserve three trailing auto columns for badge/Edit/Delete",
+  /\.tx-item-compact\s*\{[^}]*minmax\(0/s,
+  "tx-item-compact must use minmax(0,…) so history rows cannot blow out the page",
+);
+assert.match(
+  app,
+  /tx-item-actions/,
+  "Edit/Delete share one grid cell via tx-item-actions",
 );
 
 console.log("expense edit visibility tests ok");

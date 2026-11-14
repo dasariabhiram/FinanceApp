@@ -1157,7 +1157,7 @@ export function CustomerApp() {
                 <button type="button" className="ghost" onClick={cancelEditTx}>Cancel</button>
               ) : null}
             </div>
-            <form className="row" onSubmit={editingTxId ? saveEditTx : createTx}>
+            <form className="form-stack" onSubmit={editingTxId ? saveEditTx : createTx}>
               <div className="field">
                 <label htmlFor="qa-type">Type</label>
                 <select id="qa-type" value={txType} onChange={(e) => setTxType(e.target.value as "INCOME" | "EXPENSE")}>
@@ -1251,22 +1251,24 @@ export function CustomerApp() {
                     {t.type === "INCOME" ? "+" : "-"}
                     {formatMinor(String(Math.abs(Number(t.amountMinor))))}
                   </div>
-                  <button
-                    className="icon-btn"
-                    type="button"
-                    onClick={() => startEditTx(t)}
-                    aria-label={t.type === "INCOME" ? "Edit refund" : "Edit expense"}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="icon-btn"
-                    type="button"
-                    onClick={() => removeTx(t.id)}
-                    aria-label={t.type === "INCOME" ? "Delete refund" : "Delete expense"}
-                  >
-                    Delete
-                  </button>
+                  <div className="tx-item-actions">
+                    <button
+                      className="icon-btn"
+                      type="button"
+                      onClick={() => startEditTx(t)}
+                      aria-label={t.type === "INCOME" ? "Edit refund" : "Edit expense"}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="icon-btn"
+                      type="button"
+                      onClick={() => removeTx(t.id)}
+                      aria-label={t.type === "INCOME" ? "Delete refund" : "Delete expense"}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
               {!filteredTxs.length ? <div className="empty">No transactions yet</div> : null}

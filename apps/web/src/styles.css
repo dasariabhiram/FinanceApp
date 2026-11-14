@@ -308,9 +308,11 @@ a { color: inherit; text-decoration: none; }
 /* ========== Shell ========== */
 .app-shell {
   max-width: 1180px;
+  width: 100%;
   margin: 0 auto;
   padding: 1.15rem 1.15rem 5.5rem;
   animation: fade-up 480ms ease both;
+  overflow-x: clip;
 }
 
 .topbar {
@@ -490,6 +492,8 @@ a { color: inherit; text-decoration: none; }
   padding: 1.15rem 1.2rem;
   transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
   backdrop-filter: blur(8px);
+  min-width: 0;
+  max-width: 100%;
 }
 .card:hover {
   box-shadow: var(--shadow);
@@ -698,7 +702,44 @@ a { color: inherit; text-decoration: none; }
 .tx-item:hover { border-color: var(--line); transform: translateX(3px); background: color-mix(in srgb, var(--accent) 6%, var(--overlay)); }
 .tx-item .cat { font-weight: 650; }
 .tx-item .meta { color: var(--muted); font-size: 0.78rem; margin-top: 0.15rem; }
-.tx-item-compact { grid-template-columns: 1.2fr 1fr auto auto auto; }
+.tx-item-compact {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto auto;
+}
+.tx-item-compact .cat,
+.tx-item-compact .meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tx-item-actions {
+  display: flex;
+  gap: 0.35rem;
+  justify-self: end;
+  flex-shrink: 0;
+}
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.form-stack > * {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.form-stack .actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.form-stack .actions .primary,
+.form-stack .actions .secondary {
+  flex: 1;
+}
 .badge { font-weight: 700; font-size: 0.95rem; font-family: var(--font-num); }
 .badge.income { color: var(--income); }
 .badge.expense { color: var(--expense); }
@@ -714,8 +755,11 @@ a { color: inherit; text-decoration: none; }
 }
 .icon-btn:hover { color: var(--expense); border-color: color-mix(in srgb, var(--expense) 40%, var(--line)); }
 
-.section-head { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
-.section-head h2 { margin: 0; }
+.section-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
+  margin-bottom: 0.75rem; min-width: 0;
+}
+.section-head h2 { margin: 0; min-width: 0; flex: 1 1 auto; }
 .chart-wrap { height: 260px; }
 .empty { color: var(--muted); padding: 1.5rem 0.5rem; text-align: center; font-size: 0.9rem; }
 
