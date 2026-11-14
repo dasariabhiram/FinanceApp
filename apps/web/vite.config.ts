@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: "prompt",
       includeAssets: ["icon-192.png", "icon-512.png"],
       manifest: {
-        name: "FinanceApp",
-        short_name: "Finance",
+        name: "MakeYourFinance",
+        short_name: "MakeYourFinance",
         description: "Live monthly expense tracking for cash, UPI, and cards.",
         theme_color: "#07090d",
         background_color: "#07090d",

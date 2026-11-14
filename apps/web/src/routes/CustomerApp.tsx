@@ -90,6 +90,40 @@ function MicIcon() {
   );
 }
 
+function MoreIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="5" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="12" cy="19" r="1.6" />
+    </svg>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z" />
+    </svg>
+  );
+}
+
+function ListIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+    </svg>
+  );
+}
+
+function WalletIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H19a1 1 0 0 1 1 1v2H7.5A2.5 2.5 0 0 0 5 10.5V18a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-5h-4a2 2 0 1 0 0 4h4" />
+    </svg>
+  );
+}
+
 const DailyBars = lazy(() => import("../components/DashboardCharts").then((m) => ({ default: m.DailyBars })));
 const CategoryDonut = lazy(() => import("../components/DashboardCharts").then((m) => ({ default: m.CategoryDonut })));
 
@@ -112,11 +146,22 @@ export function CustomerApp() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [deferredInstall, setDeferredInstall] = useState<{ prompt: () => Promise<void> } | null>(null);
   const [pwaDismissed, setPwaDismissed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
 
   useEffect(() => {
     applyTheme(theme);
     persistTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
 
   function onToggleTheme(e?: MouseEvent) {
     const next = toggleTheme(theme);
@@ -355,6 +400,15 @@ export function CustomerApp() {
       return t.category.toLowerCase().includes(q) || (t.description ?? "").toLowerCase().includes(q);
     });
   }, [txs, txFilter, txSearch, txHistoryMonth]);
+
+  const recentExpenses = useMemo(
+    () =>
+      [...txs]
+        .filter((t) => t.type === "EXPENSE")
+        .sort((a, b) => (a.occurredOn < b.occurredOn ? 1 : a.occurredOn > b.occurredOn ? -1 : 0))
+        .slice(0, 5),
+    [txs],
+  );
 
   const dailyChart = useMemo(
     () =>
@@ -754,35 +808,59 @@ export function CustomerApp() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
+      <header className="topbar topbar-slim">
         <div className="brand">
           <div className="brand-mark" />
           <div>
             <h1>MakeYourFinance</h1>
-            <p>{loading ? "Syncing your ledger…" : orgLabel || "Expense tracking that stays out of your way"}</p>
+            <p>{loading ? "Syncing…" : orgLabel || "Personal"}</p>
           </div>
         </div>
-        <nav className="nav" aria-label="Primary">
-          {(
-            [
-              ["dashboard", "Dashboard"],
-              ["accounts", "Accounts"],
-              ["transactions", "Expenses"],
-            ] as const
-          ).map(([id, label]) => (
-            <button key={id} type="button" className={tab === id ? "active" : ""} onClick={() => setTabAndUrl(id)}>
-              {label}
-            </button>
-          ))}
-        </nav>
         <div className="top-actions">
-          {platformAdmin ? <Link className="ghost" to="/admin">Admin</Link> : null}
-          <button type="button" className="icon-toggle" onClick={(e) => onToggleTheme(e)} aria-label="Toggle theme" title="Toggle theme">
-            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-          </button>
-          <div className="user-chip">
-            <span>{sessionEmail}</span>
-            <button className="ghost" type="button" onClick={() => supabase?.auth.signOut()}>Sign out</button>
+          <div className="overflow-wrap">
+            <button
+              type="button"
+              className="icon-toggle"
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <MoreIcon />
+            </button>
+            {menuOpen ? (
+              <div className="overflow-menu" role="menu">
+                <p className="overflow-email">{sessionEmail}</p>
+                <button type="button" role="menuitem" onClick={(e) => { onToggleTheme(e); setMenuOpen(false); }}>
+                  {theme === "dark" ? "Light theme" : "Dark theme"}
+                </button>
+                {deferredInstall && !pwaDismissed ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={async () => {
+                      await deferredInstall.prompt();
+                      setDeferredInstall(null);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    Install app
+                  </button>
+                ) : null}
+                {platformAdmin ? (
+                  <Link role="menuitem" to="/admin" onClick={() => setMenuOpen(false)}>Admin</Link>
+                ) : null}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void supabase?.auth.signOut();
+                  }}
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </header>
@@ -791,8 +869,8 @@ export function CustomerApp() {
       {info ? <p className="ok">{info}</p> : null}
 
       {tab === "dashboard" ? (
-        <div className="grid" style={{ gap: "1rem" }}>
-          <div className="period-toggle" role="tablist" aria-label="Spend period">
+        <main className="grid home-feed" style={{ gap: "1rem" }}>
+          <div className="period-toggle" role="group" aria-label="Spend period">
             {(["day", "week", "month"] as const).map((p) => (
               <button key={p} type="button" className={summaryPeriod === p ? "active" : ""} onClick={() => setSummaryPeriod(p)}>
                 {p === "day" ? "Today" : p === "week" ? "Week" : "Month"}
@@ -818,77 +896,71 @@ export function CustomerApp() {
             ) : null}
           </div>
 
-          <div className="grid grid-2">
-            <div className="card">
-              <div className="section-head"><h2>Daily spending</h2></div>
-              <div className="chart-wrap">
-                <Suspense fallback={<div className="empty">Loading chart…</div>}>
-                  <DailyBars data={dailyChart} />
-                </Suspense>
-              </div>
-            </div>
-            <div className="card">
-              <div className="section-head"><h2>Spend by category</h2></div>
-              <div className="chart-wrap">
-                <Suspense fallback={<div className="empty">Loading chart…</div>}>
-                  <CategoryDonut data={categoryChart} />
-                </Suspense>
-              </div>
-            </div>
-          </div>
-
           <div className="card">
-            <div className="section-head"><h2>Spend by payment</h2></div>
+            <div className="section-head">
+              <h2>Recent</h2>
+              <button type="button" className="ghost" onClick={() => setTabAndUrl("transactions")}>See all</button>
+            </div>
             <div className="tx-list">
-              {(summary?.byPayment ?? []).map((p) => (
-                <div key={`${p.accountType}-${p.accountName}`} className="tx-item">
-                  <div>
-                    <div className="cat">{p.accountName}</div>
-                    <div className="meta">{p.accountType.replaceAll("_", " ")}</div>
+              {recentExpenses.map((t) => (
+                  <div key={t.id} className="tx-item">
+                    <div>
+                      <div className="cat">{t.category}</div>
+                      <div className="meta">
+                        {t.occurredOn}
+                        {` · ${formatTxPaymentLabel(accounts, t.accountId)}`}
+                        {t.description ? ` · ${t.description}` : ""}
+                      </div>
+                    </div>
+                    <div className="badge expense">{formatMinor(String(Math.abs(Number(t.amountMinor))))}</div>
                   </div>
-                  <div className="badge expense">{formatMinor(p.totalMinor)}</div>
-                </div>
               ))}
-              {!(summary?.byPayment?.length) ? <div className="empty">No expenses in this period</div> : null}
+              {!recentExpenses.length ? <div className="empty">No expenses yet — tap Speak to add one</div> : null}
             </div>
           </div>
 
-          <div className="card">
-            <div className="section-head"><h2>Quick add</h2></div>
-            <form className="row" onSubmit={createTx}>
-              <div className="field">
-                <label>Type</label>
-                <select value={txType} onChange={(e) => setTxType(e.target.value as "INCOME" | "EXPENSE")}>
-                  <option value="EXPENSE">Expense</option>
-                  <option value="INCOME">Income</option>
-                </select>
+          <div className="card insights-card">
+            <div className="section-head">
+              <h2>Insights</h2>
+              <button type="button" className="ghost" onClick={() => setShowInsights((v) => !v)}>
+                {showInsights ? "Hide" : "View insights"}
+              </button>
+            </div>
+            {showInsights ? (
+              <div className="grid" style={{ gap: "0.85rem" }}>
+                <div className="chart-wrap">
+                  <h3 className="insights-sub">Daily spending</h3>
+                  <Suspense fallback={<div className="empty">Loading chart…</div>}>
+                    <DailyBars data={dailyChart} />
+                  </Suspense>
+                </div>
+                <div className="chart-wrap">
+                  <h3 className="insights-sub">Spend by category</h3>
+                  <Suspense fallback={<div className="empty">Loading chart…</div>}>
+                    <CategoryDonut data={categoryChart} />
+                  </Suspense>
+                </div>
+                <div>
+                  <h3 className="insights-sub">Spend by payment</h3>
+                  <div className="tx-list">
+                    {(summary?.byPayment ?? []).map((p) => (
+                      <div key={`${p.accountType}-${p.accountName}`} className="tx-item">
+                        <div>
+                          <div className="cat">{p.accountName}</div>
+                          <div className="meta">{p.accountType.replaceAll("_", " ")}</div>
+                        </div>
+                        <div className="badge expense">{formatMinor(p.totalMinor)}</div>
+                      </div>
+                    ))}
+                    {!(summary?.byPayment?.length) ? <div className="empty">No expenses in this period</div> : null}
+                  </div>
+                </div>
               </div>
-              <div className="field">
-                <label>Amount (₹)</label>
-                <input value={txAmount} onChange={(e) => setTxAmount(e.target.value)} placeholder="500" required />
-              </div>
-              <div className="field">
-                <label>Category</label>
-                <select value={txCategory} onChange={(e) => setTxCategory(e.target.value)}>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label>Account</label>
-                <select value={txAccountId} onChange={(e) => setTxAccountId(e.target.value)} required>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="actions">
-                <button className="primary" type="submit" disabled={busy || !accounts.length}>Add</button>
-              </div>
-            </form>
+            ) : (
+              <p className="muted" style={{ margin: 0 }}>Charts and payment breakdown — open when you need them.</p>
+            )}
           </div>
-        </div>
+        </main>
       ) : null}
 
       {tab === "accounts" ? (
@@ -950,6 +1022,41 @@ export function CustomerApp() {
 
       {tab === "transactions" ? (
         <div className="grid" style={{ gap: "1rem" }}>
+          <div className="card">
+            <div className="section-head"><h2>Quick add</h2></div>
+            <form className="row" onSubmit={createTx}>
+              <div className="field">
+                <label htmlFor="qa-type">Type</label>
+                <select id="qa-type" value={txType} onChange={(e) => setTxType(e.target.value as "INCOME" | "EXPENSE")}>
+                  <option value="EXPENSE">Expense</option>
+                  <option value="INCOME">Income</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="qa-amount">Amount (₹)</label>
+                <input id="qa-amount" value={txAmount} onChange={(e) => setTxAmount(e.target.value)} placeholder="500" required />
+              </div>
+              <div className="field">
+                <label htmlFor="qa-cat">Category</label>
+                <select id="qa-cat" value={txCategory} onChange={(e) => setTxCategory(e.target.value)}>
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="qa-acct">Account</label>
+                <select id="qa-acct" value={txAccountId} onChange={(e) => setTxAccountId(e.target.value)} required>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="actions">
+                <button className="primary" type="submit" disabled={busy || !accounts.length}>Add</button>
+              </div>
+            </form>
+          </div>
           <div className="card">
             <h2>New transaction</h2>
             <form className="row" onSubmit={createTx}>
@@ -1055,50 +1162,55 @@ export function CustomerApp() {
         </div>
       ) : null}
 
-      {deferredInstall && !pwaDismissed ? (
-        <div className="pwa-banner" role="status">
-          <span>Install MakeYourFinance for one-tap voice expenses</span>
-          <div style={{ display: "flex", gap: "0.4rem" }}>
-            <button type="button" className="ghost" onClick={() => setPwaDismissed(true)}>Later</button>
-            <button
-              type="button"
-              className="primary"
-              onClick={async () => {
-                await deferredInstall.prompt();
-                setDeferredInstall(null);
-              }}
-            >
-              Install
-            </button>
+      {listening ? (
+        <div className="voice-listening-hud voice-listening-hud-dock" role="status" aria-live="assertive">
+          <div className="wave" aria-hidden="true">
+            <span /><span /><span /><span /><span />
           </div>
+          <span>Listening… speak now</span>
         </div>
       ) : null}
 
-      <div className="voice-dock">
-        {listening ? (
-          <div className="voice-listening-hud" role="status" aria-live="assertive">
-            <div className="wave" aria-hidden="true">
-              <span /><span /><span /><span /><span />
-            </div>
-            <span>Listening… speak now</span>
-          </div>
-        ) : null}
-        <div className="voice-fab-cluster">
-          <button
-            type="button"
-            className={`voice-fab${listening ? " listening" : ""}`}
-            onClick={startVoice}
-            aria-label={listening ? "Listening for expense" : "Speak to add expense"}
-            aria-pressed={listening}
-            disabled={listening}
-          >
-            <MicIcon />
-          </button>
-          <span className="voice-fab-label" aria-hidden="true">
-            {listening ? "Listening" : "Speak"}
-          </span>
-        </div>
-      </div>
+      <nav className="bottom-tab-bar" aria-label="Primary">
+        <button
+          type="button"
+          className={tab === "dashboard" ? "active" : ""}
+          aria-current={tab === "dashboard" ? "page" : undefined}
+          onClick={() => setTabAndUrl("dashboard")}
+        >
+          <HomeIcon />
+          <span>Home</span>
+        </button>
+        <button
+          type="button"
+          className={tab === "transactions" ? "active" : ""}
+          aria-current={tab === "transactions" ? "page" : undefined}
+          onClick={() => setTabAndUrl("transactions")}
+        >
+          <ListIcon />
+          <span>Expenses</span>
+        </button>
+        <button
+          type="button"
+          className={`tab-speak${listening ? " listening" : ""}`}
+          onClick={startVoice}
+          aria-label={listening ? "Listening for expense" : "Speak to add expense"}
+          aria-pressed={listening}
+          disabled={listening}
+        >
+          <MicIcon />
+          <span>Speak</span>
+        </button>
+        <button
+          type="button"
+          className={tab === "accounts" ? "active" : ""}
+          aria-current={tab === "accounts" ? "page" : undefined}
+          onClick={() => setTabAndUrl("accounts")}
+        >
+          <WalletIcon />
+          <span>Accounts</span>
+        </button>
+      </nav>
 
       {voiceOpen && voiceDraft ? (
         <div

@@ -27,14 +27,8 @@ assert.match(
   "On mobile, login panel should come before the decorative hero (CSS order)",
 );
 
-assert.match(app, /voice-fab-label/, "Speak control should expose a visible Speak label");
-assert.match(app, />\s*\{listening \? "Listening" : "Speak"\}/, "Speak/Listening label text present");
-
-assert.match(css, /@keyframes\s+fab-attention/, "Speak FAB needs idle attention animation");
-assert.match(
-  mobileCss,
-  /\.voice-dock\s*\{[^}]*left:\s*50%/,
-  "On mobile, speak control should sit in a thumb-friendly center bottom dock",
-);
+assert.match(app, /tab-speak|Speak to add expense/, "Speak control present in bottom chrome");
+assert.match(css, /\.bottom-tab-bar\s*\{/, "bottom tab bar required");
+assert.match(css, /@keyframes\s+fab-attention/, "Speak needs idle attention animation");
 
 console.log("mobile auth + voice layout tests ok");
