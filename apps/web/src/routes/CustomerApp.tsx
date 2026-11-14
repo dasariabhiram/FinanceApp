@@ -171,6 +171,14 @@ export function CustomerApp() {
 
   const loadGen = useRef(0);
   const historyTracksLiveRef = useRef(true);
+  const recognitionRef = useRef<{
+    abort: () => void;
+    stop: () => void;
+    onresult: unknown;
+    onerror: unknown;
+    onend: unknown;
+  } | null>(null);
+  const voiceSessionRef = useRef(0);
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [txs, setTxs] = useState<Tx[]>([]);
@@ -660,6 +668,7 @@ export function CustomerApp() {
 
   async function onVoiceStop(transcript: string) {
     setListening(false);
+    recognitionRef.current = null;
     setVoiceTranscript(transcript);
     const local = parseExpenseTranscript(transcript);
     if (local.confidence === "high" && local.amountMinor) {
@@ -688,35 +697,92 @@ export function CustomerApp() {
     }
   }
 
+  function stopVoice() {
+    voiceSessionRef.current += 1;
+    const rec = recognitionRef.current;
+    recognitionRef.current = null;
+    if (rec) {
+      try {
+        rec.onresult = null;
+        rec.onerror = null;
+        rec.onend = null;
+        rec.abort();
+      } catch {
+        try {
+          rec.stop();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    setListening(false);
+  }
+
   function startVoice() {
-    type SpeechCtor = new () => {
+    type SpeechRec = {
       lang: string;
       interimResults: boolean;
+      continuous: boolean;
       maxAlternatives: number;
-      onresult: ((ev: { results: Array<{ 0: { transcript: string } }> }) => void) | null;
-      onerror: (() => void) | null;
+      onresult: ((ev: { results: ArrayLike<{ 0: { transcript: string }; isFinal?: boolean }> }) => void) | null;
+      onerror: ((ev?: { error?: string }) => void) | null;
       onend: (() => void) | null;
       start: () => void;
+      stop: () => void;
+      abort: () => void;
     };
+    type SpeechCtor = new () => SpeechRec;
     const w = window as Window & { SpeechRecognition?: SpeechCtor; webkitSpeechRecognition?: SpeechCtor };
     const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
     if (!SR) return setError("Voice not supported in this browser");
+
+    // Always tear down any prior session so Speak works repeatedly
+    stopVoice();
+
+    const sessionId = voiceSessionRef.current + 1;
+    voiceSessionRef.current = sessionId;
+
     const rec = new SR();
+    recognitionRef.current = rec;
     rec.lang = "en-IN";
     rec.interimResults = false;
+    rec.continuous = false;
     rec.maxAlternatives = 1;
     setListening(true);
     setError("");
+
     rec.onresult = (ev) => {
+      if (voiceSessionRef.current !== sessionId) return;
       const line = ev.results[0]?.[0]?.transcript ?? "";
+      recognitionRef.current = null;
       void onVoiceStop(line);
     };
-    rec.onerror = () => {
+    rec.onerror = (ev) => {
+      if (voiceSessionRef.current !== sessionId) return;
+      recognitionRef.current = null;
       setListening(false);
+      const code = ev?.error ?? "";
+      if (code === "aborted" || code === "no-speech") return;
       setError("Could not capture voice — use manual entry");
     };
-    rec.onend = () => setListening(false);
-    rec.start();
+    rec.onend = () => {
+      if (voiceSessionRef.current !== sessionId) return;
+      recognitionRef.current = null;
+      setListening(false);
+    };
+
+    try {
+      rec.start();
+    } catch {
+      recognitionRef.current = null;
+      setListening(false);
+      setError("Could not start voice — tap Speak again");
+    }
+  }
+
+  function toggleVoice() {
+    if (listening) stopVoice();
+    else startVoice();
   }
 
   useEffect(() => {
@@ -728,6 +794,8 @@ export function CustomerApp() {
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionEmail]);
+
+  useEffect(() => () => stopVoice(), []);
 
   function startEditAccount(a: Account) {
     setEditingAccountId(a.id);
@@ -1167,7 +1235,7 @@ export function CustomerApp() {
           <div className="wave" aria-hidden="true">
             <span /><span /><span /><span /><span />
           </div>
-          <span>Listening… speak now</span>
+          <span>Listening… tap Stop when done</span>
         </div>
       ) : null}
 
@@ -1193,13 +1261,12 @@ export function CustomerApp() {
         <button
           type="button"
           className={`tab-speak${listening ? " listening" : ""}`}
-          onClick={startVoice}
-          aria-label={listening ? "Listening for expense" : "Speak to add expense"}
+          onClick={toggleVoice}
+          aria-label={listening ? "Stop listening" : "Speak to add expense"}
           aria-pressed={listening}
-          disabled={listening}
         >
           <MicIcon />
-          <span>Speak</span>
+          <span>{listening ? "Stop" : "Speak"}</span>
         </button>
         <button
           type="button"
